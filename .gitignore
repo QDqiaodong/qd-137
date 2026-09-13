@@ -1,0 +1,26 @@
+# dependencies and build outputs
+node_modules/
+dist/
+target/
+
+# docker/runtime data
+docker/data/
+docker/logs/
+logs/
+*.log
+*.tmp
+tmp/
+
+# local env and IDE
+.DS_Store
+.idea/
+.vscode/
+.trae/
+
+# screenshots and reports
+screenshots/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp

@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: balloon-mysql-prod
+    ports:
+      - "127.0.0.1:3363:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: balloon_db
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: password
+    volumes:
+      - ./docker/data/mysql:/var/lib/mysql
+      - ./docker/logs/mysql:/var/log/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: balloon-redis-prod
+    ports:
+      - "127.0.0.1:6436:6379"
+    volumes:
+      - ./docker/data/redis:/data
+      - ./docker/logs/redis:/var/log/redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: balloon-backend-prod
+    ports:
+      - "127.0.0.1:8147:8147"
+    environment:
+      - SERVER_PORT=8147
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=balloon_db
+      - DB_USER=admin
+      - DB_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+    volumes:
+      - ./docker/logs/backend:/app/logs
+      - ./docker/data/wind_match:/app/data
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: balloon-frontend-prod
+    ports:
+      - "127.0.0.1:8137:8137"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  redis-data:
