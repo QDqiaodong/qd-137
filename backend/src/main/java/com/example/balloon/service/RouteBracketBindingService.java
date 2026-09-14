@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -37,34 +38,57 @@ public class RouteBracketBindingService {
         Bracket bracket = bracketRepository.findById(dto.getBracketId())
                 .orElseThrow(() -> new EntityNotFoundException("支架不存在: " + dto.getBracketId()));
 
-        WindMatchResult result = windMatchService.checkWindMatch(dto.getRouteId(), dto.getBracketId());
-        
-        if (!result.isMatched()) {
-            throw new IllegalArgumentException("支架风力区间无法适配航线风力范围: " + result.getMessage());
+        Double launchWindSpeed = dto.getLaunchWindSpeed();
+        String matchLevel = windMatchService.calculateMatchLevel(
+                route.getMinWindSpeed(), route.getMaxWindSpeed(), bracket);
+        String windStatus = windMatchService.evaluateWindStatus(launchWindSpeed, route, bracket);
+        boolean completed = "MATCHED".equals(windStatus);
+        String message = windMatchService.buildWindCheckMessage(launchWindSpeed, route, bracket);
+
+        Optional<RouteBracketBinding> existing =
+                bindingRepository.findByRouteIdAndBracketId(dto.getRouteId(), dto.getBracketId());
+
+        RouteBracketBinding binding;
+        if (existing.isPresent()) {
+            binding = existing.get();
+            if ("ACTIVE".equals(binding.getStatus())) {
+                throw new IllegalArgumentException("该航线与支架已绑定");
+            }
+            binding.setMatchLevel(matchLevel);
+            binding.setLaunchWindSpeed(launchWindSpeed);
+            binding.setWindStatus(windStatus);
+            binding.setStatus(completed ? "ACTIVE" : "MISMATCH");
+            binding.setUpdatedAt(LocalDateTime.now());
+        } else {
+            binding = RouteBracketBinding.builder()
+                    .route(route)
+                    .bracket(bracket)
+                    .matchLevel(matchLevel)
+                    .launchWindSpeed(launchWindSpeed)
+                    .windStatus(windStatus)
+                    .status(completed ? "ACTIVE" : "MISMATCH")
+                    .build();
         }
-
-        if (bindingRepository.findByRouteIdAndBracketId(dto.getRouteId(), dto.getBracketId()).isPresent()) {
-            throw new IllegalArgumentException("该航线与支架已绑定");
-        }
-
-        RouteBracketBinding binding = RouteBracketBinding.builder()
-                .route(route)
-                .bracket(bracket)
-                .matchLevel(result.getMatchLevel())
-                .status("ACTIVE")
-                .build();
-
         bindingRepository.save(binding);
-        
-        windMatchService.saveMatchLog(route.getId(), route.getRouteCode(), 
+
+        windMatchService.saveMatchLog(route.getId(), route.getRouteCode(),
                 bracket.getId(), bracket.getBracketCode(),
                 route.getMinWindSpeed(), route.getMaxWindSpeed(),
                 route.getMinWindSpeed(), route.getMaxWindSpeed(),
-                "BIND", result.getMatchLevel(),
-                "绑定支架: " + bracket.getBracketCode() + " 到航线: " + route.getRouteCode());
+                "BIND", windStatus,
+                "绑定支架: " + bracket.getBracketCode() + " 到航线: " + route.getRouteCode()
+                        + "，" + message);
 
-        log.info("Bound bracket {} to route {}", bracket.getBracketCode(), route.getRouteCode());
-        return result;
+        log.info("Bind bracket {} to route {}: windStatus={}, launchWindSpeed={}",
+                bracket.getBracketCode(), route.getRouteCode(), windStatus, launchWindSpeed);
+
+        return WindMatchResult.builder()
+                .matched(completed)
+                .matchLevel(matchLevel)
+                .windStatus(windStatus)
+                .launchWindSpeed(launchWindSpeed)
+                .message(message)
+                .build();
     }
 
     @Transactional
@@ -102,7 +126,11 @@ public class RouteBracketBindingService {
                         "UNBIND", "NO_MATCH",
                         "航线风力参数更新后，支架: " + binding.getBracket().getBracketCode() + " 不再适配，已解绑");
             } else {
+                String windStatus = windMatchService.evaluateWindStatus(
+                        binding.getLaunchWindSpeed(), route, binding.getBracket());
                 binding.setMatchLevel(matchLevel);
+                binding.setWindStatus(windStatus);
+                binding.setStatus("MATCHED".equals(windStatus) ? "ACTIVE" : "MISMATCH");
                 binding.setUpdatedAt(LocalDateTime.now());
                 bindingRepository.save(binding);
             }
@@ -112,7 +140,7 @@ public class RouteBracketBindingService {
     }
 
     public List<Map<String, Object>> getBindingsByRoute(Long routeId) {
-        List<RouteBracketBinding> bindings = bindingRepository.findActiveByRouteId(routeId);
+        List<RouteBracketBinding> bindings = bindingRepository.findVisibleByRouteId(routeId);
         return bindings.stream()
                 .map(b -> {
                     Map<String, Object> map = new HashMap<>();
@@ -127,6 +155,8 @@ public class RouteBracketBindingService {
                     map.put("bracketMinWind", b.getBracket().getMinWindSpeed());
                     map.put("bracketMaxWind", b.getBracket().getMaxWindSpeed());
                     map.put("matchLevel", b.getMatchLevel());
+                    map.put("launchWindSpeed", b.getLaunchWindSpeed());
+                    map.put("windStatus", b.getWindStatus() != null ? b.getWindStatus() : "MATCHED");
                     map.put("status", b.getStatus());
                     return map;
                 })
@@ -146,6 +176,8 @@ public class RouteBracketBindingService {
                     map.put("bracketCode", b.getBracket().getBracketCode());
                     map.put("bracketName", b.getBracket().getBracketName());
                     map.put("matchLevel", b.getMatchLevel());
+                    map.put("launchWindSpeed", b.getLaunchWindSpeed());
+                    map.put("windStatus", b.getWindStatus() != null ? b.getWindStatus() : "MATCHED");
                     map.put("status", b.getStatus());
                     return map;
                 })

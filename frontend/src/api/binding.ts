@@ -1,8 +1,8 @@
 import api from './axios'
 import type { Binding, WindMatchResult } from '@/types'
 
-export const createBinding = (routeId: number, bracketId: number) =>
-  api.post<WindMatchResult>('/bindings', { routeId, bracketId })
+export const createBinding = (routeId: number, bracketId: number, launchWindSpeed?: number | null) =>
+  api.post<WindMatchResult>('/bindings', { routeId, bracketId, launchWindSpeed: launchWindSpeed ?? null })
 
 export const deleteBinding = (routeId: number, bracketId: number) =>
   api.delete(`/bindings/route/${routeId}/bracket/${bracketId}`)
@@ -16,5 +16,7 @@ export const getBindingsByBracket = (bracketId: number) =>
 export const countBindings = (routeId: number) =>
   api.get<{ count: number }>(`/bindings/route/${routeId}/count`)
 
-export const checkMatch = (routeId: number, bracketId: number) =>
-  api.get<WindMatchResult>(`/bindings/check-match`, { params: { routeId, bracketId } })
+export const checkMatch = (routeId: number, bracketId: number, launchWindSpeed?: number | null) =>
+  api.get<WindMatchResult>(`/bindings/check-match`, {
+    params: { routeId, bracketId, ...(launchWindSpeed != null ? { launchWindSpeed } : {}) }
+  })

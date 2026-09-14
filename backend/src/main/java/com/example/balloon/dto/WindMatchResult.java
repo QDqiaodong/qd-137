@@ -19,6 +19,10 @@ public class WindMatchResult {
 
     private String message;
 
+    private String windStatus;
+
+    private Double launchWindSpeed;
+
     private List<BracketDTO> suitableBrackets;
 
     private List<BracketDTO> unsuitableBrackets;

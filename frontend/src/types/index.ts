@@ -36,6 +36,8 @@ export interface Binding {
   bracketMinWind: number
   bracketMaxWind: number
   matchLevel: string
+  launchWindSpeed?: number | null
+  windStatus?: string
   status: string
 }
 
@@ -43,6 +45,8 @@ export interface WindMatchResult {
   matched: boolean
   matchLevel: string
   message: string
+  windStatus?: string
+  launchWindSpeed?: number | null
   suitableBrackets?: Bracket[]
   unsuitableBrackets?: Bracket[]
 }

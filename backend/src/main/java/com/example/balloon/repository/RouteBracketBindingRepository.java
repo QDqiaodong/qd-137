@@ -21,6 +21,9 @@ public interface RouteBracketBindingRepository extends JpaRepository<RouteBracke
     @Query("SELECT b FROM RouteBracketBinding b WHERE b.route.id = :routeId AND b.status = 'ACTIVE'")
     List<RouteBracketBinding> findActiveByRouteId(@Param("routeId") Long routeId);
 
+    @Query("SELECT b FROM RouteBracketBinding b WHERE b.route.id = :routeId AND b.status IN ('ACTIVE', 'MISMATCH') ORDER BY b.id")
+    List<RouteBracketBinding> findVisibleByRouteId(@Param("routeId") Long routeId);
+
     @Query("SELECT b FROM RouteBracketBinding b WHERE b.bracket.id = :bracketId AND b.status = 'ACTIVE'")
     List<RouteBracketBinding> findActiveByBracketId(@Param("bracketId") Long bracketId);
 

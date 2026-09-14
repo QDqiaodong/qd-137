@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Route, Bracket, Binding } from '@/types'
 import { getRoutes } from '@/api/route'
@@ -12,6 +12,13 @@ const bindings = ref<Binding[]>([])
 const loading = ref(false)
 const selectedRoute = ref<number | null>(null)
 const selectedBracket = ref<number | null>(null)
+const launchWindSpeed = ref<number>()
+
+const FILTER_STORAGE_KEY = 'binding-wind-status-filter'
+const ROUTE_STORAGE_KEY = 'binding-selected-route'
+
+type WindStatusFilter = 'ALL' | 'MATCHED' | 'MISMATCH'
+const windStatusFilter = ref<WindStatusFilter>('ALL')
 
 const columns = [
   { prop: 'bracketCode', label: '支架编号' },
@@ -19,12 +26,37 @@ const columns = [
   { prop: 'maxLoad', label: '最大承重(kg)' },
   { prop: 'bracketMinWind', label: '支架最小风力' },
   { prop: 'bracketMaxWind', label: '支架最大风力' },
+  { prop: 'launchWindSpeed', label: '当日放飞风速', width: 120 },
   { prop: 'matchLevel', label: '匹配等级', width: 100 },
+  { prop: 'windStatus', label: '区间状态', width: 100 },
   { prop: 'action', label: '操作', width: 100 }
 ]
 
 const currentRoute = computed(() => {
   return routes.value.find(r => r.id === selectedRoute.value)
+})
+
+const currentBracket = computed(() => {
+  return brackets.value.find(b => b.id === selectedBracket.value)
+})
+
+const effectiveWindStatus = (binding: Binding) => binding.windStatus || 'MATCHED'
+
+const filteredBindings = computed(() => {
+  if (windStatusFilter.value === 'ALL') return bindings.value
+  return bindings.value.filter(b => effectiveWindStatus(b) === windStatusFilter.value)
+})
+
+watch(windStatusFilter, (val) => {
+  localStorage.setItem(FILTER_STORAGE_KEY, val)
+})
+
+watch(selectedRoute, (val) => {
+  if (val == null) {
+    localStorage.removeItem(ROUTE_STORAGE_KEY)
+  } else {
+    localStorage.setItem(ROUTE_STORAGE_KEY, String(val))
+  }
 })
 
 const loadRoutes = async () => {
@@ -71,16 +103,23 @@ const handleBind = async () => {
   }
 
   try {
-    const result = await checkMatch(selectedRoute.value, selectedBracket.value)
-    if (!result.matched) {
-      await ElMessageBox.confirm(`该支架风力区间与航线不匹配：${result.message}，是否继续绑定？`, '提示', {
-        type: 'warning'
-      })
+    const check = await checkMatch(selectedRoute.value, selectedBracket.value, launchWindSpeed.value ?? null)
+    if (!check.matched) {
+      await ElMessageBox.confirm(
+        '该支架适飞窗口与航线适飞窗口无重叠，提交后将标记为区间错位且无法完成绑定，是否继续？',
+        '提示',
+        { type: 'warning' }
+      )
     }
 
-    await createBinding(selectedRoute.value, selectedBracket.value)
-    ElMessage.success('绑定成功')
-    selectedBracket.value = null
+    const result = await createBinding(selectedRoute.value, selectedBracket.value, launchWindSpeed.value ?? null)
+    if (result.windStatus === 'MISMATCH') {
+      ElMessage.error(result.message || '区间错位，不能完成绑定')
+    } else {
+      ElMessage.success('绑定成功')
+      selectedBracket.value = null
+      launchWindSpeed.value = undefined
+    }
     await loadBindings()
   } catch (error: any) {
     if (error !== 'cancel') {
@@ -122,9 +161,17 @@ const getMatchLevelColor = (level: string) => {
   return map[level] || '#909399'
 }
 
-onMounted(() => {
-  loadRoutes()
-  loadBrackets()
+onMounted(async () => {
+  const savedFilter = localStorage.getItem(FILTER_STORAGE_KEY)
+  if (savedFilter === 'ALL' || savedFilter === 'MATCHED' || savedFilter === 'MISMATCH') {
+    windStatusFilter.value = savedFilter
+  }
+  await Promise.all([loadRoutes(), loadBrackets()])
+  const savedRouteId = Number(localStorage.getItem(ROUTE_STORAGE_KEY))
+  if (savedRouteId && routes.value.some(r => r.id === savedRouteId)) {
+    selectedRoute.value = savedRouteId
+    await loadBindings()
+  }
 })
 </script>
 
@@ -134,20 +181,27 @@ onMounted(() => {
       <el-form :model="{ route: selectedRoute }" inline>
         <el-form-item label="选择航线" required>
           <el-select v-model="selectedRoute" placeholder="请选择航线" @change="handleRouteChange" style="width: 250px">
-            <el-option v-for="route in routes" :key="route.id" 
+            <el-option v-for="route in routes" :key="route.id"
               :label="`${route.routeCode} - ${route.routeName}`" :value="route.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="选择支架">
           <el-select v-model="selectedBracket" placeholder="请选择支架" style="width: 250px">
-            <el-option v-for="bracket in brackets" :key="bracket.id" 
+            <el-option v-for="bracket in brackets" :key="bracket.id"
               :label="`${bracket.bracketCode} - ${bracket.bracketName}`" :value="bracket.id" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="当日放飞风速(m/s)">
+          <el-input-number v-model="launchWindSpeed" :min="0" :max="30" :step="0.5" :precision="1"
+            controls-position="right" placeholder="实测风速" style="width: 150px" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleBind" :disabled="!selectedRoute || !selectedBracket">绑定</el-button>
         </el-form-item>
       </el-form>
+      <div class="wind-hint">
+        放飞员须当场核对：当日放飞风速需同时落在航线与支架各自的适飞窗口内；未填写风速或不在双方窗口内将标记为区间错位，不能完成绑定。
+      </div>
     </div>
 
     <div v-if="currentRoute" class="route-info">
@@ -155,19 +209,40 @@ onMounted(() => {
         <div class="info-row">
           <span class="label">航线名称：</span>
           <span>{{ currentRoute.routeName }}</span>
-          <span class="label" style="margin-left: 30px">风力范围：</span>
+          <span class="label" style="margin-left: 30px">航线适飞窗口：</span>
           <span>{{ currentRoute.minWindSpeed }} - {{ currentRoute.maxWindSpeed }} m/s</span>
+          <template v-if="currentBracket">
+            <span class="label" style="margin-left: 30px">支架适飞窗口：</span>
+            <span>{{ currentBracket.minWindSpeed }} - {{ currentBracket.maxWindSpeed }} m/s</span>
+          </template>
         </div>
       </el-card>
     </div>
 
+    <div v-if="selectedRoute" class="filter-bar">
+      <span class="filter-label">区间状态筛选：</span>
+      <el-radio-group v-model="windStatusFilter">
+        <el-radio-button value="ALL">全部</el-radio-button>
+        <el-radio-button value="MATCHED">区间匹配</el-radio-button>
+        <el-radio-button value="MISMATCH">区间错位</el-radio-button>
+      </el-radio-group>
+    </div>
+
     <div class="table-container">
-      <el-table :data="bindings" :loading="loading" border style="width: 100%">
+      <el-table :data="filteredBindings" :loading="loading" border style="width: 100%">
         <el-table-column v-for="col in columns" :key="col.prop" :prop="col.prop" :label="col.label">
           <template #default="{ row }">
             <template v-if="col.prop === 'matchLevel'">
               <span :style="{ color: getMatchLevelColor(row.matchLevel) }">
                 {{ getMatchLevelText(row.matchLevel) }}
+              </span>
+            </template>
+            <template v-else-if="col.prop === 'launchWindSpeed'">
+              {{ row.launchWindSpeed != null ? row.launchWindSpeed + ' m/s' : '未填写' }}
+            </template>
+            <template v-else-if="col.prop === 'windStatus'">
+              <span :style="{ color: effectiveWindStatus(row) === 'MISMATCH' ? '#f56c6c' : '#67c23a', fontWeight: 'bold' }">
+                {{ effectiveWindStatus(row) === 'MISMATCH' ? '区间错位' : '区间匹配' }}
               </span>
             </template>
             <template v-else-if="col.prop === 'action'">
@@ -179,8 +254,8 @@ onMounted(() => {
           </template>
         </el-table-column>
       </el-table>
-      <div v-if="bindings.length === 0 && selectedRoute" class="empty-tip">
-        暂无绑定的支架，可选择上方支架进行绑定
+      <div v-if="filteredBindings.length === 0 && selectedRoute" class="empty-tip">
+        {{ bindings.length === 0 ? '暂无绑定的支架，可选择上方支架进行绑定' : '当前筛选条件下暂无记录' }}
       </div>
     </div>
   </div>
@@ -198,6 +273,12 @@ onMounted(() => {
   border-radius: 8px;
 }
 
+.wind-hint {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.6;
+}
+
 .route-info {
   margin-bottom: 20px;
 }
@@ -211,6 +292,18 @@ onMounted(() => {
 .label {
   font-weight: 500;
   color: #606266;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.filter-label {
+  font-size: 14px;
+  color: #606266;
+  margin-right: 10px;
 }
 
 .table-container {

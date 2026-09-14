@@ -28,12 +28,21 @@ public class WindMatchService {
     private final WindMatchLogRepository windMatchLogRepository;
 
     public WindMatchResult checkWindMatch(Long routeId, Long bracketId) {
+        return checkWindMatch(routeId, bracketId, null);
+    }
+
+    public WindMatchResult checkWindMatch(Long routeId, Long bracketId, Double launchWindSpeed) {
         Route route = routeRepository.findById(routeId)
                 .orElseThrow(() -> new IllegalArgumentException("航线不存在: " + routeId));
         Bracket bracket = bracketRepository.findById(bracketId)
                 .orElseThrow(() -> new IllegalArgumentException("支架不存在: " + bracketId));
 
-        return checkWindMatch(route.getMinWindSpeed(), route.getMaxWindSpeed(), bracket);
+        WindMatchResult result = checkWindMatch(route.getMinWindSpeed(), route.getMaxWindSpeed(), bracket);
+        String windStatus = evaluateWindStatus(launchWindSpeed, route, bracket);
+        result.setWindStatus(windStatus);
+        result.setLaunchWindSpeed(launchWindSpeed);
+        result.setMessage(buildWindCheckMessage(launchWindSpeed, route, bracket));
+        return result;
     }
 
     public WindMatchResult checkWindMatch(Double routeMinWind, Double routeMaxWind, Bracket bracket) {
@@ -113,12 +122,59 @@ public class WindMatchService {
         if (bracketMinWind <= routeMinWind && bracketMaxWind >= routeMaxWind) {
             return "PERFECT";
         }
-        
+
         if (bracketMaxWind >= routeMinWind && bracketMinWind <= routeMaxWind) {
             return "PARTIAL";
         }
-        
+
         return "NONE";
+    }
+
+    /**
+     * 核对当日放飞风速是否同时落在航线与支架各自的适飞窗口内。
+     * 未填写风速或任一窗口不覆盖该风速时，判定为区间错位(MISMATCH)。
+     */
+    public String evaluateWindStatus(Double launchWindSpeed, Route route, Bracket bracket) {
+        if (launchWindSpeed == null) {
+            return "MISMATCH";
+        }
+        boolean inRouteWindow = launchWindSpeed >= route.getMinWindSpeed()
+                && launchWindSpeed <= route.getMaxWindSpeed();
+        boolean inBracketWindow = launchWindSpeed >= bracket.getMinWindSpeed()
+                && launchWindSpeed <= bracket.getMaxWindSpeed();
+        return (inRouteWindow && inBracketWindow) ? "MATCHED" : "MISMATCH";
+    }
+
+    /**
+     * 生成当日放飞风速对照结果说明，用于绑定响应与日志。
+     */
+    public String buildWindCheckMessage(Double launchWindSpeed, Route route, Bracket bracket) {
+        String routeWindow = String.format("[%.1f-%.1f]", route.getMinWindSpeed(), route.getMaxWindSpeed());
+        String bracketWindow = String.format("[%.1f-%.1f]", bracket.getMinWindSpeed(), bracket.getMaxWindSpeed());
+
+        if (launchWindSpeed == null) {
+            return "区间错位：未填写当日放飞风速，不能完成绑定";
+        }
+
+        boolean inRouteWindow = launchWindSpeed >= route.getMinWindSpeed()
+                && launchWindSpeed <= route.getMaxWindSpeed();
+        boolean inBracketWindow = launchWindSpeed >= bracket.getMinWindSpeed()
+                && launchWindSpeed <= bracket.getMaxWindSpeed();
+
+        if (inRouteWindow && inBracketWindow) {
+            return String.format("区间匹配：当日放飞风速 %.1f m/s 同时在航线适飞窗口%s与支架适飞窗口%s内",
+                    launchWindSpeed, routeWindow, bracketWindow);
+        }
+        if (!inRouteWindow && !inBracketWindow) {
+            return String.format("区间错位：当日放飞风速 %.1f m/s 既不在航线适飞窗口%s内，也不在支架适飞窗口%s内，不能完成绑定",
+                    launchWindSpeed, routeWindow, bracketWindow);
+        }
+        if (!inRouteWindow) {
+            return String.format("区间错位：当日放飞风速 %.1f m/s 不在航线适飞窗口%s内，不能完成绑定",
+                    launchWindSpeed, routeWindow);
+        }
+        return String.format("区间错位：当日放飞风速 %.1f m/s 不在支架适飞窗口%s内，不能完成绑定",
+                launchWindSpeed, bracketWindow);
     }
 
     @Transactional

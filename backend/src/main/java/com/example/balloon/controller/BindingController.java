@@ -49,7 +49,8 @@ public class BindingController {
     @GetMapping("/check-match")
     public ResponseEntity<WindMatchResult> checkMatch(
             @RequestParam Long routeId,
-            @RequestParam Long bracketId) {
-        return ResponseEntity.ok(windMatchService.checkWindMatch(routeId, bracketId));
+            @RequestParam Long bracketId,
+            @RequestParam(required = false) Double launchWindSpeed) {
+        return ResponseEntity.ok(windMatchService.checkWindMatch(routeId, bracketId, launchWindSpeed));
     }
 }

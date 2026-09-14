@@ -37,6 +37,12 @@ public class RouteBracketBinding {
     @Column(name = "match_level", length = 20)
     private String matchLevel;
 
+    @Column(name = "launch_wind_speed")
+    private Double launchWindSpeed;
+
+    @Column(name = "wind_status", length = 20)
+    private String windStatus;
+
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
