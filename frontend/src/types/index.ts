@@ -51,6 +51,15 @@ export interface WindMatchResult {
   unsuitableBrackets?: Bracket[]
 }
 
+export interface OperatorInfo {
+  operatorCode: string
+  operatorName: string
+  /** DISPATCHER=调度；LAUNCH_OPERATOR=放飞员 */
+  role: string
+  /** 放飞员当班航线ID列表；调度为空（不限航线） */
+  dutyRouteIds: number[]
+}
+
 export interface WindMatchLog {
   id: number
   routeId: number

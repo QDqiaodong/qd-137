@@ -2,11 +2,16 @@ package com.example.balloon.config;
 
 import com.example.balloon.cache.BracketCacheService;
 import com.example.balloon.entity.Bracket;
+import com.example.balloon.entity.DutyAssignment;
+import com.example.balloon.entity.Operator;
 import com.example.balloon.entity.Route;
 import com.example.balloon.entity.RouteBracketBinding;
 import com.example.balloon.repository.BracketRepository;
+import com.example.balloon.repository.DutyAssignmentRepository;
+import com.example.balloon.repository.OperatorRepository;
 import com.example.balloon.repository.RouteBracketBindingRepository;
 import com.example.balloon.repository.RouteRepository;
+import com.example.balloon.service.OperatorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -23,6 +28,8 @@ public class StartupRunner implements CommandLineRunner {
     private final BracketRepository bracketRepository;
     private final RouteRepository routeRepository;
     private final RouteBracketBindingRepository bindingRepository;
+    private final OperatorRepository operatorRepository;
+    private final DutyAssignmentRepository dutyAssignmentRepository;
 
     @Override
     public void run(String... args) throws Exception {
@@ -160,5 +167,49 @@ public class StartupRunner implements CommandLineRunner {
                 log.info("Seeded initial route-bracket bindings");
             }
         }
+
+        seedOperatorsAndDuty();
+    }
+
+    private void seedOperatorsAndDuty() {
+        if (operatorRepository.count() > 0) {
+            return;
+        }
+
+        Operator dispatcher = operatorRepository.save(Operator.builder()
+                .operatorCode("DISP-001")
+                .operatorName("调度员·王调")
+                .role(Operator.ROLE_DISPATCHER)
+                .passwordHash(OperatorService.sha256("dispatch123"))
+                .status("ACTIVE")
+                .build());
+        Operator pilotEast = operatorRepository.save(Operator.builder()
+                .operatorCode("OP-001")
+                .operatorName("放飞员·李帆")
+                .role(Operator.ROLE_LAUNCH_OPERATOR)
+                .passwordHash(OperatorService.sha256("pilot123"))
+                .status("ACTIVE")
+                .build());
+        Operator pilotHighland = operatorRepository.save(Operator.builder()
+                .operatorCode("OP-002")
+                .operatorName("放飞员·赵翔")
+                .role(Operator.ROLE_LAUNCH_OPERATOR)
+                .passwordHash(OperatorService.sha256("pilot123"))
+                .status("ACTIVE")
+                .build());
+
+        assignDuty(pilotEast, "RTE-001");
+        assignDuty(pilotEast, "RTE-002");
+        assignDuty(pilotHighland, "RTE-003");
+        log.info("Seeded operators: dispatcher={}, launchOperators=[{}, {}]",
+                dispatcher.getOperatorCode(), pilotEast.getOperatorCode(), pilotHighland.getOperatorCode());
+    }
+
+    private void assignDuty(Operator operator, String routeCode) {
+        routeRepository.findByRouteCode(routeCode).ifPresent(route ->
+                dutyAssignmentRepository.save(DutyAssignment.builder()
+                        .operator(operator)
+                        .route(route)
+                        .build()));
     }
 }

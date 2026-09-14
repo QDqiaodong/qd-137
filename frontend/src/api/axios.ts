@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { identity } from '@/stores/identity'
 
 const instance = axios.create({
   baseURL: '/api',
@@ -7,6 +8,15 @@ const instance = axios.create({
     'Content-Type': 'application/json;charset=UTF-8',
     'Accept': 'application/json;charset=UTF-8'
   }
+})
+
+// 已完成身份核对时，自动在请求头携带身份，后端逐请求重新核对
+instance.interceptors.request.use((config) => {
+  if (identity.operator) {
+    config.headers['X-Operator-Code'] = identity.operator.operatorCode
+    config.headers['X-Operator-Password'] = identity.password
+  }
+  return config
 })
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
