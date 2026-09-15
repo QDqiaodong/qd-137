@@ -16,9 +16,9 @@ public interface RouteRepository extends JpaRepository<Route, Long> {
 
     List<Route> findByStatus(String status);
 
-    List<Route> findByGroupName(String groupName);
+    List<Route> findByGroupNameAndStatus(String groupName, String status);
 
-    @Query("SELECT DISTINCT r.groupName FROM Route r")
+    @Query("SELECT DISTINCT r.groupName FROM Route r WHERE r.status = 'ACTIVE'")
     List<String> findDistinctGroupNames();
 
     @Query("SELECT r FROM Route r WHERE r.status = 'ACTIVE'")

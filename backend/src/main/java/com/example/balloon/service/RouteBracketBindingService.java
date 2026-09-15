@@ -35,6 +35,9 @@ public class RouteBracketBindingService {
     public WindMatchResult bindBracketToRoute(BindingDTO dto) {
         Route route = routeRepository.findById(dto.getRouteId())
                 .orElseThrow(() -> new EntityNotFoundException("航线不存在: " + dto.getRouteId()));
+        if (!"ACTIVE".equals(route.getStatus())) {
+            throw new IllegalArgumentException("航线已删除，不能绑定支架: " + route.getRouteCode());
+        }
         Bracket bracket = bracketRepository.findById(dto.getBracketId())
                 .orElseThrow(() -> new EntityNotFoundException("支架不存在: " + dto.getBracketId()));
 

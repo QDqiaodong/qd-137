@@ -34,6 +34,9 @@ public class WindMatchService {
     public WindMatchResult checkWindMatch(Long routeId, Long bracketId, Double launchWindSpeed) {
         Route route = routeRepository.findById(routeId)
                 .orElseThrow(() -> new IllegalArgumentException("航线不存在: " + routeId));
+        if (!"ACTIVE".equals(route.getStatus())) {
+            throw new IllegalArgumentException("航线已删除，不能试配支架: " + route.getRouteCode());
+        }
         Bracket bracket = bracketRepository.findById(bracketId)
                 .orElseThrow(() -> new IllegalArgumentException("支架不存在: " + bracketId));
 

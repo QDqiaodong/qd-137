@@ -97,7 +97,7 @@ public class RouteService {
     }
 
     public List<RouteDTO> getRoutesByGroup(String groupName) {
-        return routeRepository.findByGroupName(groupName).stream()
+        return routeRepository.findByGroupNameAndStatus(groupName, "ACTIVE").stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
