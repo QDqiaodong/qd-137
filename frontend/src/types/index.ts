@@ -75,3 +75,25 @@ export interface WindMatchLog {
   description: string
   createdAt: string
 }
+
+/** 某条航线某一天的飞行合计 */
+export interface DailyFlightSummary {
+  routeId: number
+  routeCode: string
+  routeName: string
+  flightDate: string
+  /** 当天累计趟次；没记过为0 */
+  flightCount: number
+  /** 当天累计时长（分钟）；没记过为0 */
+  totalDuration: number
+  /** 当天是否有过登记 */
+  recorded: boolean
+}
+
+/** 登记一笔飞行记录 */
+export interface FlightRecordRequest {
+  routeId: number
+  flightDate: string
+  flightCount: number
+  durationMinutes: number
+}
