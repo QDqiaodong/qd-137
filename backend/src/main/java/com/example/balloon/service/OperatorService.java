@@ -50,6 +50,17 @@ public class OperatorService {
     }
 
     /**
+     * 放飞证照台账的补录/换证仅调度可执行；放飞员只读。
+     */
+    public void requireCertificateWriter(Operator operator) {
+        if (!Operator.ROLE_DISPATCHER.equals(operator.getRole())) {
+            log.warn("Operator {} ({}) attempted to write the release-certificate ledger",
+                    operator.getOperatorCode(), operator.getRole());
+            throw new AccessDeniedException("放飞证照台账仅调度可补录/换证，放飞员为只读权限");
+        }
+    }
+
+    /**
      * 放飞员仅限查看自己当班航线；调度不限航线。
      */
     public void requireRouteVisible(Operator operator, Long routeId) {

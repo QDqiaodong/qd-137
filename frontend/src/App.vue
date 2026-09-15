@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CertificatePage from '@/pages/CertificatePage.vue'
 import BracketPage from '@/pages/BracketPage.vue'
 import RoutePage from '@/pages/RoutePage.vue'
 import BindingPage from '@/pages/BindingPage.vue'
@@ -6,7 +7,7 @@ import WindMatchPage from '@/pages/WindMatchPage.vue'
 import ReturnPage from '@/pages/ReturnPage.vue'
 import { ref } from 'vue'
 
-const activeTab = ref('return')
+const activeTab = ref('certificate')
 </script>
 
 <template>
@@ -16,6 +17,9 @@ const activeTab = ref('return')
     </header>
     <nav class="app-nav">
       <el-tabs v-model="activeTab" type="border-card">
+        <el-tab-pane label="放飞证照台账" name="certificate">
+          <CertificatePage />
+        </el-tab-pane>
         <el-tab-pane label="支架归位交接" name="return">
           <ReturnPage />
         </el-tab-pane>

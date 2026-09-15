@@ -4,11 +4,13 @@ import com.example.balloon.cache.BracketCacheService;
 import com.example.balloon.entity.Bracket;
 import com.example.balloon.entity.DutyAssignment;
 import com.example.balloon.entity.Operator;
+import com.example.balloon.entity.ReleaseCertificate;
 import com.example.balloon.entity.Route;
 import com.example.balloon.entity.RouteBracketBinding;
 import com.example.balloon.repository.BracketRepository;
 import com.example.balloon.repository.DutyAssignmentRepository;
 import com.example.balloon.repository.OperatorRepository;
+import com.example.balloon.repository.ReleaseCertificateRepository;
 import com.example.balloon.repository.RouteBracketBindingRepository;
 import com.example.balloon.repository.RouteRepository;
 import com.example.balloon.service.OperatorService;
@@ -17,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Slf4j
@@ -30,10 +33,12 @@ public class StartupRunner implements CommandLineRunner {
     private final RouteBracketBindingRepository bindingRepository;
     private final OperatorRepository operatorRepository;
     private final DutyAssignmentRepository dutyAssignmentRepository;
+    private final ReleaseCertificateRepository releaseCertificateRepository;
 
     @Override
     public void run(String... args) throws Exception {
         seedInitialData();
+        seedCertificates();
         log.info("Initializing bracket cache...");
         bracketCacheService.initCache();
         log.info("Bracket cache initialization completed.");
@@ -221,5 +226,37 @@ public class StartupRunner implements CommandLineRunner {
                         .operator(operator)
                         .route(route)
                         .build()));
+    }
+
+    /**
+     * 台账初始证照：给两名在册放飞员各留一张已登记的放飞证，
+     * 便于演示换证次序（新证到期日必须严格晚于现有最晚到期日）与证号撞号定位。
+     * 仅在证照台账为空时补录，重启不会重复。
+     */
+    private void seedCertificates() {
+        if (releaseCertificateRepository.count() > 0) {
+            return;
+        }
+        operatorRepository.findByOperatorCode("OP-001").ifPresent(pilot ->
+                releaseCertificateRepository.save(ReleaseCertificate.builder()
+                        .certificateNo("CERT-OP001-01")
+                        .operatorCode(pilot.getOperatorCode())
+                        .operatorName(pilot.getOperatorName())
+                        .issueDate(LocalDate.of(2024, 4, 1))
+                        .expireDate(LocalDate.of(2025, 3, 31))
+                        .batchNo("CERT-BATCH-20240401-001")
+                        .createdOperatorCode("DISP-001")
+                        .build()));
+        operatorRepository.findByOperatorCode("OP-002").ifPresent(pilot ->
+                releaseCertificateRepository.save(ReleaseCertificate.builder()
+                        .certificateNo("CERT-OP002-01")
+                        .operatorCode(pilot.getOperatorCode())
+                        .operatorName(pilot.getOperatorName())
+                        .issueDate(LocalDate.of(2025, 7, 1))
+                        .expireDate(LocalDate.of(2026, 6, 30))
+                        .batchNo("CERT-BATCH-20250701-001")
+                        .createdOperatorCode("DISP-001")
+                        .build()));
+        log.info("Seeded initial release certificates for launch operators");
     }
 }

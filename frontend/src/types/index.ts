@@ -140,3 +140,45 @@ export interface HandoffStatus {
   /** 页面提示语 */
   message: string
 }
+
+/** 台账中的一张放飞证 */
+export interface ReleaseCertificate {
+  id: number
+  certificateNo: string
+  operatorCode: string
+  operatorName: string
+  /** yyyy-MM-dd */
+  issueDate: string
+  /** yyyy-MM-dd */
+  expireDate: string
+  batchNo: string
+  createdOperatorCode: string
+  createdAt: string
+}
+
+/** 批量补录/换证的一行（字符串接收，后端逐条校验并回带行号） */
+export interface CertificateRow {
+  operatorCode: string
+  certificateNo: string
+  issueDate: string
+  expireDate: string
+}
+
+/** 整批落库结果（成功） */
+export interface CertificateBatchResult {
+  batchNo: string
+  savedCount: number
+  message: string
+}
+
+/** 整批被拦下的行级说明（后端 422 带回） */
+export interface BatchRejectedDetail {
+  /** 卡住的行号，从 1 开始 */
+  rowNumber: number
+  row: CertificateRow
+  reason: string
+  conflictType: string
+  currentHolderName?: string | null
+  currentHolderCode?: string | null
+}
+
