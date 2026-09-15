@@ -24,6 +24,16 @@ const columns = [
 const suitableBrackets = ref<Bracket[]>([])
 const showResult = ref(false)
 
+/** 支架区间是否完全盖住当日风速区间 */
+const isPerfectMatch = (bracket: Bracket) => {
+  const min = Number(searchForm.value.minWindSpeed)
+  const max = Number(searchForm.value.maxWindSpeed)
+  return bracket.minWindSpeed <= min && bracket.maxWindSpeed >= max
+}
+
+/** 是否存在能完全盖住当日风速区间的支架；一个都盖不住时页上必须明确告知 */
+const hasPerfectMatch = computed(() => suitableBrackets.value.some(isPerfectMatch))
+
 const windRangeDesc = computed(() => {
   if (!searchForm.value.minWindSpeed || !searchForm.value.maxWindSpeed) return ''
   return `${searchForm.value.minWindSpeed} - ${searchForm.value.maxWindSpeed} m/s`
@@ -50,7 +60,11 @@ const handleSearch = async () => {
       Number(searchForm.value.maxWindSpeed)
     )
     showResult.value = true
-    ElMessage.success(`共找到 ${suitableBrackets.value.length} 个适配支架`)
+    if (hasPerfectMatch.value) {
+      ElMessage.success(`共找到 ${suitableBrackets.value.length} 个适配支架`)
+    } else {
+      ElMessage.warning('今天没有完全匹配的支架')
+    }
   } catch (error) {
     ElMessage.error('搜索失败')
   } finally {
@@ -70,8 +84,8 @@ const getBracketTypeText = (type: string) => {
 const getMatchStatus = (bracket: Bracket) => {
   const min = Number(searchForm.value.minWindSpeed)
   const max = Number(searchForm.value.maxWindSpeed)
-  
-  if (bracket.minWindSpeed <= min && bracket.maxWindSpeed >= max) {
+
+  if (isPerfectMatch(bracket)) {
     return { text: '完全匹配', color: '#67c23a' }
   }
   if (bracket.maxWindSpeed >= min && bracket.minWindSpeed <= max) {
@@ -106,6 +120,15 @@ onMounted(() => {
 
     <div v-if="showResult" class="result-section">
       <el-card :title="`筛选结果 - 风力区间: ${windRangeDesc}`">
+        <el-alert
+          v-if="suitableBrackets.length > 0 && !hasPerfectMatch"
+          type="warning"
+          :closable="false"
+          show-icon
+          class="no-perfect-alert"
+          title="今天没有完全匹配的支架"
+          description="以下支架只能部分覆盖当日风速区间，没有能完全盖住的，请勿当作完全适配使用"
+        />
         <el-table :data="suitableBrackets" :loading="loading" border style="width: 100%">
           <el-table-column v-for="col in columns" :key="col.prop" :prop="col.prop" :label="col.label">
             <template #default="{ row }">
@@ -128,7 +151,7 @@ onMounted(() => {
           <el-icon size="48" color="#909399">
             <Search />
           </el-icon>
-          <p>未找到适配该风力区间的支架</p>
+          <p>今天没有完全匹配的支架</p>
           <p class="hint">建议检查风力范围或增加支架配置</p>
         </div>
       </el-card>
@@ -172,6 +195,10 @@ onMounted(() => {
 
 .result-section {
   margin-bottom: 20px;
+}
+
+.no-perfect-alert {
+  margin-bottom: 16px;
 }
 
 .empty-tip {
