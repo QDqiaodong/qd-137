@@ -3,9 +3,10 @@ import BracketPage from '@/pages/BracketPage.vue'
 import RoutePage from '@/pages/RoutePage.vue'
 import BindingPage from '@/pages/BindingPage.vue'
 import WindMatchPage from '@/pages/WindMatchPage.vue'
+import ReturnPage from '@/pages/ReturnPage.vue'
 import { ref } from 'vue'
 
-const activeTab = ref('bracket')
+const activeTab = ref('return')
 </script>
 
 <template>
@@ -15,6 +16,9 @@ const activeTab = ref('bracket')
     </header>
     <nav class="app-nav">
       <el-tabs v-model="activeTab" type="border-card">
+        <el-tab-pane label="支架归位交接" name="return">
+          <ReturnPage />
+        </el-tab-pane>
         <el-tab-pane label="地面固定支架管理" name="bracket">
           <BracketPage />
         </el-tab-pane>

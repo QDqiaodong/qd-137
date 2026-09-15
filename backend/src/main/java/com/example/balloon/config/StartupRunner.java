@@ -172,37 +172,47 @@ public class StartupRunner implements CommandLineRunner {
     }
 
     private void seedOperatorsAndDuty() {
-        if (operatorRepository.count() > 0) {
-            return;
+        if (operatorRepository.count() == 0) {
+            Operator dispatcher = operatorRepository.save(Operator.builder()
+                    .operatorCode("DISP-001")
+                    .operatorName("调度员·王调")
+                    .role(Operator.ROLE_DISPATCHER)
+                    .passwordHash(OperatorService.sha256("dispatch123"))
+                    .status("ACTIVE")
+                    .build());
+            Operator pilotEast = operatorRepository.save(Operator.builder()
+                    .operatorCode("OP-001")
+                    .operatorName("放飞员·李帆")
+                    .role(Operator.ROLE_LAUNCH_OPERATOR)
+                    .passwordHash(OperatorService.sha256("pilot123"))
+                    .status("ACTIVE")
+                    .build());
+            Operator pilotHighland = operatorRepository.save(Operator.builder()
+                    .operatorCode("OP-002")
+                    .operatorName("放飞员·赵翔")
+                    .role(Operator.ROLE_LAUNCH_OPERATOR)
+                    .passwordHash(OperatorService.sha256("pilot123"))
+                    .status("ACTIVE")
+                    .build());
+
+            assignDuty(pilotEast, "RTE-001");
+            assignDuty(pilotEast, "RTE-002");
+            assignDuty(pilotHighland, "RTE-003");
+            log.info("Seeded operators: dispatcher={}, launchOperators=[{}, {}]",
+                    dispatcher.getOperatorCode(), pilotEast.getOperatorCode(), pilotHighland.getOperatorCode());
         }
 
-        Operator dispatcher = operatorRepository.save(Operator.builder()
-                .operatorCode("DISP-001")
-                .operatorName("调度员·王调")
-                .role(Operator.ROLE_DISPATCHER)
-                .passwordHash(OperatorService.sha256("dispatch123"))
-                .status("ACTIVE")
-                .build());
-        Operator pilotEast = operatorRepository.save(Operator.builder()
-                .operatorCode("OP-001")
-                .operatorName("放飞员·李帆")
-                .role(Operator.ROLE_LAUNCH_OPERATOR)
-                .passwordHash(OperatorService.sha256("pilot123"))
-                .status("ACTIVE")
-                .build());
-        Operator pilotHighland = operatorRepository.save(Operator.builder()
-                .operatorCode("OP-002")
-                .operatorName("放飞员·赵翔")
-                .role(Operator.ROLE_LAUNCH_OPERATOR)
-                .passwordHash(OperatorService.sha256("pilot123"))
-                .status("ACTIVE")
-                .build());
-
-        assignDuty(pilotEast, "RTE-001");
-        assignDuty(pilotEast, "RTE-002");
-        assignDuty(pilotHighland, "RTE-003");
-        log.info("Seeded operators: dispatcher={}, launchOperators=[{}, {}]",
-                dispatcher.getOperatorCode(), pilotEast.getOperatorCode(), pilotHighland.getOperatorCode());
+        // 地勤账号单独补录：旧库已有调度/放飞员时也要能使用归位交接
+        if (operatorRepository.findByOperatorCode("GRD-001").isEmpty()) {
+            operatorRepository.save(Operator.builder()
+                    .operatorCode("GRD-001")
+                    .operatorName("地勤·陈锚")
+                    .role(Operator.ROLE_GROUND_CREW)
+                    .passwordHash(OperatorService.sha256("ground123"))
+                    .status("ACTIVE")
+                    .build());
+            log.info("Seeded ground crew operator: GRD-001");
+        }
     }
 
     private void assignDuty(Operator operator, String routeCode) {

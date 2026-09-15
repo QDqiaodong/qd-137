@@ -20,6 +20,8 @@ public class Operator {
     public static final String ROLE_DISPATCHER = "DISPATCHER";
     /** 放飞员：只读，且仅限自己当班航线 */
     public static final String ROLE_LAUNCH_OPERATOR = "LAUNCH_OPERATOR";
+    /** 地勤：负责地面固定支架的归位交接 */
+    public static final String ROLE_GROUND_CREW = "GROUND_CREW";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

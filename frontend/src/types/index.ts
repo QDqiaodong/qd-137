@@ -97,3 +97,46 @@ export interface FlightRecordRequest {
   flightCount: number
   durationMinutes: number
 }
+
+/** 归位清单条目 */
+export interface ReturnItem {
+  id: number
+  shiftId: number
+  bracketId: number
+  bracketCode: string
+  bracketName: string
+  /** RETURNED=已收回停放区；ON_SITE=还停在场地 */
+  returnStatus: string
+  createdOperatorCode: string
+  returnedOperatorCode?: string | null
+  createdAt: string
+  returnedAt?: string | null
+}
+
+/** 班组（一班） */
+export interface DutyShift {
+  id: number
+  shiftCode: string
+  /** ACTIVE=本班进行中；CLOSED=已交接下班 */
+  shiftStatus: string
+  startOperatorCode: string
+  closeOperatorCode?: string | null
+  startedAt: string
+  closedAt?: string | null
+  totalItems: number
+  onSiteItems: number
+}
+
+/** 归位页交接状态 */
+export interface HandoffStatus {
+  /** 当前进行中的班组；交接间隙为 null */
+  activeShift: DutyShift | null
+  /** 交接间隙待收回的上一班；本班进行中为 null */
+  pendingShift: DutyShift | null
+  /** 交接间隙需要先收回的清单（上一班未收回条目） */
+  pendingItems: ReturnItem[]
+  /** 是否可以开始本班 */
+  canStartShift: boolean
+  /** 页面提示语 */
+  message: string
+}
